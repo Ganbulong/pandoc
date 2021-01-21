@@ -77,7 +77,7 @@ writeBibtexString :: Variant             -- ^ bibtex or biblatex
                   -> Text
 writeBibtexString variant locale ref =
   "@" <> bibtexType <> "{" <> unItemId (referenceId ref) <> ",\n  " <>
-  renderFields fields <> "\n}"
+  renderFields fields <> "\n}\n"
 
  where
   bibtexType = "book" -- TODO
@@ -136,8 +136,8 @@ writeBibtexString variant locale ref =
   valToInlines (TextVal t) = B.text t
   valToInlines (FancyVal ils) = ils
   valToInlines (NumVal n) = B.text (T.pack $ show n)
-  valToInlines (NamesVal names) = undefined -- TODO
-  valToInlines (DateVal date) = undefined -- TODO
+  valToInlines (NamesVal names) = B.text "TODO" -- TODO
+  valToInlines (DateVal date) = B.text "TODO" -- TODO
 
   toLaTeX x = case runPure (writeLaTeX def $ doc (B.plain (valToInlines x))) of
                   Left _  -> Nothing
