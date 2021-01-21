@@ -32,6 +32,7 @@ formatFromFilePath x =
   case takeExtension (map toLower x) of
     ".adoc"     -> Just "asciidoc"
     ".asciidoc" -> Just "asciidoc"
+    ".bib"      -> Just "biblatex"
     ".context"  -> Just "context"
     ".ctx"      -> Just "context"
     ".db"       -> Just "docbook"

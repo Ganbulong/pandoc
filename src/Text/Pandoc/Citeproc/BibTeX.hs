@@ -82,7 +82,56 @@ writeBibtexString variant locale ref =
  where
   bibtexType = "book" -- TODO
 
-  fields = [("title", valToInlines (TextVal "my title"))]
+  fields =
+    case variant of
+      Biblatex ->
+           [ "author"
+           , "editor"
+           , "translator"
+           , "publisher"
+           , "title"
+           , "booktitle"
+           , "journal"
+           , "series"
+           , "edition"
+           , "volume"
+           , "volumes"
+           , "number"
+           , "pages"
+           , "date"
+           , "eventdate"
+           , "urldate"
+           , "address"
+           , "url"
+           , "doi"
+           , "isbn"
+           , "issn"
+           , "type"
+           , "entrysubtype"
+           , "note"
+           , "language"
+           , "abstract"
+           , "keywords"
+           ]
+      Bibtex ->
+           [ "author"
+           , "editor"
+           , "translator"
+           , "publisher"
+           , "title"
+           , "booktitle"
+           , "journal"
+           , "series"
+           , "edition"
+           , "volume"
+           , "number"
+           , "pages"
+           , "year"
+           , "month"
+           , "address"
+           , "type"
+           , "note"
+           ]
 
   valToInlines (TextVal t) = B.text t
   valToInlines (FancyVal ils) = ils
@@ -90,13 +139,19 @@ writeBibtexString variant locale ref =
   valToInlines (NamesVal names) = undefined -- TODO
   valToInlines (DateVal date) = undefined -- TODO
 
-  toLaTeX ils = case runPure (writeLaTeX def $ doc (B.plain ils)) of
-                  Left _  -> mempty
-                  Right t -> t
+  toLaTeX x = case runPure (writeLaTeX def $ doc (B.plain (valToInlines x))) of
+                  Left _  -> Nothing
+                  Right t -> Just t
 
-  renderField (name, contents) = name <> " = {" <> toLaTeX contents <> "}"
+  renderField name = (\contents -> name <> " = {" <> contents <> "}")
+                      <$> getContentsFor name
 
-  renderFields = T.intercalate ",\n  " . map renderField
+  getVariable v = lookupVariable (toVariable v) ref
+
+  getContentsFor "title" = getVariable "title" >>= toLaTeX
+  getContentsFor x = getVariable x >>= toLaTeX
+
+  renderFields = T.intercalate ",\n  " . mapMaybe renderField
 
 defaultLang :: Lang
 defaultLang = Lang "en" (Just "US")
