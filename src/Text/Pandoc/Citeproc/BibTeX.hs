@@ -17,6 +17,7 @@
 module Text.Pandoc.Citeproc.BibTeX
     ( Variant(..)
     , readBibtexString
+    , writeBibtexString
     )
     where
 
@@ -25,9 +26,10 @@ import Text.Pandoc.Builder as B
 import Text.Pandoc.Readers.LaTeX (readLaTeX)
 import Text.Pandoc.Extensions (Extension(..), extensionsFromList)
 import Text.Pandoc.Options (ReaderOptions(..))
-import Text.Pandoc.Class (runPure)
 import Text.Pandoc.Error (PandocError)
 import Text.Pandoc.Shared (stringify)
+import Text.Pandoc.Writers.LaTeX (writeLaTeX)
+import Text.Pandoc.Class (runPure)
 import qualified Text.Pandoc.Walk       as Walk
 import Citeproc.Types
 import Citeproc.Pandoc ()
@@ -67,6 +69,34 @@ readBibtexString variant locale idpred contents = do
            "" contents of
           Left err -> Left err
           Right xs -> return xs
+
+-- | Write BibTeX or BibLaTeX given given a 'Reference'.
+writeBibtexString :: Variant             -- ^ bibtex or biblatex
+                  -> Locale              -- ^ Locale
+                  -> Reference Inlines   -- ^ Reference to write
+                  -> Text
+writeBibtexString variant locale ref =
+  "@" <> bibtexType <> "{" <> unItemId (referenceId ref) <> ",\n  " <>
+  renderFields fields <> "\n}"
+
+ where
+  bibtexType = "book" -- TODO
+
+  fields = [("title", valToInlines (TextVal "my title"))]
+
+  valToInlines (TextVal t) = B.text t
+  valToInlines (FancyVal ils) = ils
+  valToInlines (NumVal n) = B.text (T.pack $ show n)
+  valToInlines (NamesVal names) = undefined -- TODO
+  valToInlines (DateVal date) = undefined -- TODO
+
+  toLaTeX ils = case runPure (writeLaTeX def $ doc (B.plain ils)) of
+                  Left _  -> mempty
+                  Right t -> t
+
+  renderField (name, contents) = name <> " = {" <> toLaTeX contents <> "}"
+
+  renderFields = T.intercalate ",\n  " . map renderField
 
 defaultLang :: Lang
 defaultLang = Lang "en" (Just "US")
