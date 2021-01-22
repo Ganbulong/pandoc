@@ -112,7 +112,6 @@ writeBibtexString variant locale ref =
            , "language"
            , "abstract"
            , "keywords"
-           , "options"
            ]
       Bibtex ->
            [ "author"
@@ -158,16 +157,23 @@ writeBibtexString variant locale ref =
 
   spacedMaybes = mconcat . intersperse B.space . mapMaybe (fmap B.text)
 
-  toLaTeX x = case runPure (writeLaTeX def $ doc (B.plain (valToInlines x))) of
-                  Left _  -> Nothing
-                  Right t -> Just t
+  toLaTeX x =
+    case runPure (writeLaTeX def $ doc (B.plain (valToInlines x))) of
+           Left _  -> Nothing
+           Right t -> Just t
 
   renderField name = (\contents -> name <> " = {" <> contents <> "}")
                       <$> getContentsFor name
 
   getVariable v = lookupVariable (toVariable v) ref
 
-  getContentsFor x = getVariable x >>= toLaTeX
+  getContentsFor "type" = Nothing -- for now
+  getContentsFor x = getVariable x >>=
+    if isURL x
+       then Just . stringify
+       else toLaTeX
+
+  isURL x = x `elem` ["url","doi","issn","isbn"]
 
   renderFields = T.intercalate ",\n  " . mapMaybe renderField
 
