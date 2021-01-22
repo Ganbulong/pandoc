@@ -48,7 +48,7 @@ import qualified Data.Sequence          as Seq
 import           Data.Char              (isAlphaNum, isDigit, isLetter,
                                          isUpper, toLower, toUpper,
                                          isLower, isPunctuation)
-import           Data.List              (foldl', intercalate)
+import           Data.List              (foldl', intercalate, intersperse)
 import           Safe                   (readMay)
 
 data Variant = Bibtex | Biblatex
@@ -112,6 +112,7 @@ writeBibtexString variant locale ref =
            , "language"
            , "abstract"
            , "keywords"
+           , "options"
            ]
       Bibtex ->
            [ "author"
@@ -136,8 +137,26 @@ writeBibtexString variant locale ref =
   valToInlines (TextVal t) = B.text t
   valToInlines (FancyVal ils) = ils
   valToInlines (NumVal n) = B.text (T.pack $ show n)
-  valToInlines (NamesVal names) = B.text "TODO" -- TODO
+  valToInlines (NamesVal names) =
+    mconcat $ intersperse (B.space <> B.text "and" <> B.space)
+            $ map renderName names
   valToInlines (DateVal date) = B.text "TODO" -- TODO
+
+  renderName name =
+    case nameLiteral name of
+      Just t  -> B.text t
+      Nothing -> spacedMaybes
+                  [ nameNonDroppingParticle name
+                  , nameFamily name
+                  , if nameCommaSuffix name
+                        then (", " <>) <$> nameSuffix name
+                        else nameSuffix name ]
+                  <>
+                  spacedMaybes
+                   [ (", " <>) <$> nameGiven name,
+                     nameDroppingParticle name ]
+
+  spacedMaybes = mconcat . intersperse B.space . mapMaybe (fmap B.text)
 
   toLaTeX x = case runPure (writeLaTeX def $ doc (B.plain (valToInlines x))) of
                   Left _  -> Nothing
@@ -148,7 +167,6 @@ writeBibtexString variant locale ref =
 
   getVariable v = lookupVariable (toVariable v) ref
 
-  getContentsFor "title" = getVariable "title" >>= toLaTeX
   getContentsFor x = getVariable x >>= toLaTeX
 
   renderFields = T.intercalate ",\n  " . mapMaybe renderField
