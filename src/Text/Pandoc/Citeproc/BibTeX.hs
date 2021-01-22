@@ -77,12 +77,12 @@ writeBibtexString :: Variant             -- ^ bibtex or biblatex
                   -> Text
 writeBibtexString variant locale ref =
   "@" <> bibtexType <> "{" <> unItemId (referenceId ref) <> ",\n  " <>
-  renderFields fields <> "\n}\n"
+  renderFields fs <> "\n}\n"
 
  where
   bibtexType = "book" -- TODO
 
-  fields =
+  fs =
     case variant of
       Biblatex ->
            [ "author"
@@ -155,10 +155,24 @@ writeBibtexString variant locale ref =
                    [ (", " <>) <$> nameGiven name,
                      nameDroppingParticle name ]
 
+  mblang = localeLanguage locale
+
+  titlecase = case mblang of
+                Just (Lang "en" _) -> titlecase'
+                Nothing            -> titlecase'
+                _                  -> id
+
+  titlecase' = protectCase (addTextCase mblang TitleCase) .
+               Walk.walk spanAroundCapitalizedWords
+
+  spanAroundCapitalizedWords (Str t) | not (T.all isLower t) =
+    Span ("",["nocase"],[]) [Str t]
+  spanAroundCapitalizedWords x = x
+
   spacedMaybes = mconcat . intersperse B.space . mapMaybe (fmap B.text)
 
   toLaTeX x =
-    case runPure (writeLaTeX def $ doc (B.plain (valToInlines x))) of
+    case runPure (writeLaTeX def $ doc (B.plain x)) of
            Left _  -> Nothing
            Right t -> Just t
 
@@ -170,8 +184,12 @@ writeBibtexString variant locale ref =
   getContentsFor "type" = Nothing -- for now
   getContentsFor x = getVariable x >>=
     if isURL x
-       then Just . stringify
-       else toLaTeX
+       then Just . stringify . valToInlines
+       else toLaTeX .
+            (if x == "title"
+                then titlecase
+                else id) .
+            valToInlines
 
   isURL x = x `elem` ["url","doi","issn","isbn"]
 
