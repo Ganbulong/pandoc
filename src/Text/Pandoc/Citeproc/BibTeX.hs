@@ -170,8 +170,11 @@ writeBibtexString variant locale ref =
                 Nothing            -> titlecase'
                 _                  -> id
 
-  titlecase' = protectCase (addTextCase mblang TitleCase) .
-               Walk.walk spanAroundCapitalizedWords
+  titlecase' = addTextCase mblang TitleCase .
+    (\ils -> B.fromList
+               (case B.toList ils of
+                  Str t : xs -> Str t : Walk.walk spanAroundCapitalizedWords xs
+                  xs         -> Walk.walk spanAroundCapitalizedWords xs))
 
   -- protect capitalized words when we titlecase
   spanAroundCapitalizedWords (Str t) | not (T.all isLower t) =
