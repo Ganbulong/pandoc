@@ -50,6 +50,7 @@ import           Data.Char              (isAlphaNum, isDigit, isLetter,
                                          isLower, isPunctuation)
 import           Data.List              (foldl', intercalate, intersperse)
 import           Safe                   (readMay)
+import           Text.Printf            (printf)
 
 data Variant = Bibtex | Biblatex
   deriving (Show, Eq, Ord)
@@ -139,7 +140,14 @@ writeBibtexString variant locale ref =
   valToInlines (NamesVal names) =
     mconcat $ intersperse (B.space <> B.text "and" <> B.space)
             $ map renderName names
-  valToInlines (DateVal date) = B.text "TODO" -- TODO
+  valToInlines (DateVal date) = B.text $
+    case dateLiteral date of
+      Just t  -> t
+      Nothing -> T.intercalate "/" (map renderDatePart (dateParts date)) <>
+                    (if dateCirca date then "~" else mempty)
+
+  renderDatePart (DateParts xs) = T.intercalate "-" $
+                                    map (T.pack . printf "%02d") xs
 
   renderName name =
     case nameLiteral name of
@@ -165,6 +173,7 @@ writeBibtexString variant locale ref =
   titlecase' = protectCase (addTextCase mblang TitleCase) .
                Walk.walk spanAroundCapitalizedWords
 
+  -- protect capitalized words when we titlecase
   spanAroundCapitalizedWords (Str t) | not (T.all isLower t) =
     Span ("",["nocase"],[]) [Str t]
   spanAroundCapitalizedWords x = x
@@ -182,6 +191,7 @@ writeBibtexString variant locale ref =
   getVariable v = lookupVariable (toVariable v) ref
 
   getContentsFor "type" = Nothing -- for now
+  getContentsFor "date"  = getVariable "issued" >>= toLaTeX . valToInlines
   getContentsFor x = getVariable x >>=
     if isURL x
        then Just . stringify . valToInlines
